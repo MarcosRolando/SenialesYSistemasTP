@@ -50,3 +50,20 @@ figure(4)
 specgram(audios(:,1), 2500, Fs, hanning(2500))
 xlim([0.4, 8])
 ylim([0, 1500])
+
+% Ejercicio 2
+
+% Estimar los retardos viendo el grafico del segmento ese del ejercicio 1
+
+% Ejercicio 3
+
+for i = (1:4)
+    [c, lags] = xcorr(audios(:,i), audios(:,i+1), 20);
+    [~, max_index] = max(c);
+    k(i) = -lags(max_index); % Dado que xcorr usa en la definicion x[i + k] pero el enunciado usa x[i - k],
+                              % debemos hacer un negado del indice para que sea equivalente a la del enunciado
+endfor
+
+format short e
+
+k / Fs
