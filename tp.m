@@ -81,3 +81,34 @@ endfor
 
 disp("\nRetardos obtenidos mediante el segundo método (en segundos):\n")
 taus = taus / Fs % Paso de muestras a tiempo
+
+% Ejercicio 4
+
+N = 50000;
+delta_n = 1000;
+
+
+for i = (1:4)
+    x = audios(:,i);
+    y = audios(:,i+1);
+    n0 = N / 2;
+    j = 1;
+
+    while ((n0 + N/2) < rows(audios))
+        w_start = n0 - N/2 + 1;
+        w_end = n0 + N/2;
+        dft_x = fft(x(w_start:w_end));
+        dft_y = fft(y(w_start:w_end));
+        Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
+        gph = real(ifft(Gph));
+        [~, m] = max(gph(1:9/10*N)); % Filtro para evitar el pico del final y 9/10*N me alcanza porque se que el pico esta bastante al principio
+        if (m > N/2)
+            m = m - N; % TODO este if no estaria haciendo nada. y si hace algo da mal
+        endif
+        tau_xy(j) = m / Fs;
+        j = j + 1;
+        n0 = n0 + delta_n; 
+    endwhile
+
+    mean(tau_xy)
+endfor
