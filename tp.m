@@ -74,8 +74,10 @@ for i = (1:4)
     dft_next_mic = fft(audios(:,i+1));
     Gph = dft_curr_mic .* conj(dft_next_mic) ./ (abs(dft_curr_mic).*abs(dft_next_mic));
     gph = real(ifft(Gph));
-    [~, max_index] = max(gph(1:100)); % Lo limito a 100 puntos porque el maximo esta dentro de ese rango y si tomo todo
-                                      % agarraria el ruido del final
+    [~, max_index] = max(gph);
+    if (max_index > rows(audios)/2)
+        max_index = max_index - rows(audios);
+    endif
     taus(i) = max_index;
 endfor
 
@@ -107,7 +109,7 @@ for i = (1:4)
         gph = real(ifft(Gph));
         [~, m] = max(gph);
         if (m > N/2)
-            m = m - N; % TODO este if no estaria haciendo nada. y si hace algo da mal
+            m = m - N;
         endif
         tau_xy(j) = m / Fs;
         j = j + 1;
