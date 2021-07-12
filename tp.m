@@ -84,9 +84,13 @@ taus = taus / Fs % Paso de muestras a tiempo
 
 % Ejercicio 4
 
-N = 50000;
-delta_n = 1000;
+c = 340; % Velocidad del sonido en el aire en m/s
+d = 0.05; % Distancia entre los microfonos en m
 
+N = 50000;
+delta_n = 20000;
+tita = []; % Angulos
+slope = [];% Pendientes
 
 for i = (1:4)
     x = audios(:,i);
@@ -101,7 +105,7 @@ for i = (1:4)
         dft_y = fft(y(w_start:w_end));
         Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
         gph = real(ifft(Gph));
-        [~, m] = max(gph(1:9/10*N)); % Filtro para evitar el pico del final y 9/10*N me alcanza porque se que el pico esta bastante al principio
+        [~, m] = max(gph);
         if (m > N/2)
             m = m - N; % TODO este if no estaria haciendo nada. y si hace algo da mal
         endif
@@ -110,5 +114,18 @@ for i = (1:4)
         n0 = n0 + delta_n; 
     endwhile
 
-    mean(tau_xy)
+    mean_tau = mean(tau_xy)
+    tita(i) = acos(mean_tau * c / d);
+    slope(i) = tan(tita(i));
+    clear tau_xy
 endfor
+
+figure(5)
+hold
+grid on
+
+for i = (1:4)
+    line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
+endfor
+
+clear all % Clear all variables
