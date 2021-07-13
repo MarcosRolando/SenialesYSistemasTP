@@ -1,4 +1,7 @@
 pkg load signal
+pkg load matgeom % Para usar la funcion projPointOnLine()
+global audios Fs
+
 load audios1.mat % Loads the file with the signals
 
 % Ejercicio 1
@@ -58,7 +61,7 @@ ylim([0, 1500])
 % Ejercicio 3
 
 for i = (1:4)
-    [coeffs, lags] = xcorr(audios(:,i), audios(:,i+1), 20);
+    [coeffs, lags] = xcorr(audios(:,i+1), audios(:,i), 20); % Paso 
     [~, max_index] = max(coeffs);
     k(i) = -lags(max_index); % Dado que xcorr usa en la definicion x[i + k] pero el enunciado usa x[i - k],
                               % debemos hacer un negado del indice para que sea equivalente a la del enunciado
@@ -86,41 +89,89 @@ taus = taus / Fs % Paso de muestras a tiempo
 
 % Ejercicio 4
 
-c = 340; % Velocidad del sonido en el aire en m/s
-d = 0.05; % Distancia entre los microfonos en m
+function slope = calculate_lines (N, delta_n)
+    global audios Fs
 
-N = 50000;
-delta_n = 20000;
-tita = []; % Angulos
-slope = [];% Pendientes
+    c = 340; % Velocidad del sonido en el aire en m/s
+    d = 0.05; % Distancia entre los microfonos en m
 
-for i = (1:4)
-    x = audios(:,i);
-    y = audios(:,i+1);
-    n0 = N / 2;
-    j = 1;
+    tita = []; % Angulos
+    slope = [];% Pendientes
 
-    while ((n0 + N/2) < rows(audios))
-        w_start = n0 - N/2 + 1;
-        w_end = n0 + N/2;
-        dft_x = fft(x(w_start:w_end));
-        dft_y = fft(y(w_start:w_end));
-        Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
-        gph = real(ifft(Gph));
-        [~, m] = max(gph);
-        if (m > N/2)
-            m = m - N;
+    for i = (1:4)
+        x = audios(:,i);
+        y = audios(:,i+1);
+        n0 = N / 2;
+        j = 1;
+
+        while ((n0 + N/2) < rows(audios))
+            w_start = n0 - N/2 + 1;
+            w_end = n0 + N/2;
+            dft_x = fft(x(w_start:w_end));
+            dft_y = fft(y(w_start:w_end));
+            Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
+            gph = real(ifft(Gph));
+            [~, m] = max(gph);
+            if (m > N/2)
+                m = m - N;
+            endif
+            tau_xy(j) = m / Fs;
+            j = j + 1;
+            n0 = n0 + delta_n; 
+        endwhile
+
+        mean_tau = mean(tau_xy)
+        tita(i) = acos(mean_tau * c / d);
+        slope(i) = tan(tita(i));
+        clear tau_xy
+    endfor
+
+endfunction
+
+
+%{
+best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
+for N = (1000:1000:100000)
+    for delta_n = ((N/10):(N*5/100):N)
+        slope = calculate_lines(N, delta_n);
+
+        k = 1;
+        best_x = 0;
+        best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
+        for i = (1:3)
+            for j = (i:3)
+                if (slope(i) == slope(j+1))
+                    continue
+                endif
+                curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
+                curr_y = slope(i)*curr_x - slope(i)*0.05*i;
+                if (curr_y > 0 && curr_y < best_y)
+                    best_x = curr_x;
+                    best_y = curr_y;
+                endif
+                k = k + 1;
+            endfor
+        endfor
+        
+        curr_error = 0;
+        for i = (1:4)
+            Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
+            v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
+            curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
+        endfor
+        if (curr_error < best_error)
+            best_error = curr_error
+            best_N = N
+            best_delta_n = delta_n
         endif
-        tau_xy(j) = m / Fs;
-        j = j + 1;
-        n0 = n0 + delta_n; 
-    endwhile
 
-    mean_tau = mean(tau_xy)
-    tita(i) = acos(mean_tau * c / d);
-    slope(i) = tan(tita(i));
-    clear tau_xy
+    endfor
 endfor
+%}
+
+best_N = 82000; % Calculados ejecutando el algoritmo de arriba
+best_delta_n = 24600;
+slope = calculate_lines(best_N, best_delta_n);
 
 figure(5)
 hold
@@ -131,3 +182,10 @@ for i = (1:4)
 endfor
 
 clear all % Clear all variables
+
+% y1 = m1*x + b1
+% y2 = m2*x + b2
+
+%bm1*x + b1 = m2*x + b2
+% (m1 - m2) * x = b2 - b1
+% x = (b2 - b1) / (m1 - m2)
