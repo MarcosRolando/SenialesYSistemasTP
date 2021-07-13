@@ -1,8 +1,17 @@
 pkg load signal
-pkg load matgeom % Para usar la funcion projPointOnLine()
+pkg load matgeom % Para usar la funcion projPointOnLine() y createLine()
+pkg load communications % 
 global audios Fs
 
-load audios1.mat % Loads the file with the signals
+%load audios1.mat % Cargo las seniales sin ruido
+load audiosRuido1.mat % Cargo las seniales con ruido
+
+% Ejercicio 5
+%{
+for i = (1:5)
+    audios(:,i) = awgn(audios(:,i), 20, "measured", 1); % Agrego 20dB de ruido blanco a cada senial
+endfor
+%}
 
 % Ejercicio 1
 
@@ -182,10 +191,3 @@ for i = (1:4)
 endfor
 
 clear all % Clear all variables
-
-% y1 = m1*x + b1
-% y2 = m2*x + b2
-
-%bm1*x + b1 = m2*x + b2
-% (m1 - m2) * x = b2 - b1
-% x = (b2 - b1) / (m1 - m2)
