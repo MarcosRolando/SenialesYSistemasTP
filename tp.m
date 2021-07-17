@@ -3,8 +3,8 @@ pkg load matgeom % Para usar la funcion projPointOnLine() y createLine()
 pkg load communications % 
 global audios Fs
 
-%load audios1.mat % Cargo las seniales sin ruido
-load audiosRuido1.mat % Cargo las seniales con ruido
+load audios1.mat % Cargo las seniales sin ruido
+%load audiosRuido1.mat % Cargo las seniales con ruido
 
 close all % Para cerrar los graficos al correr de nuevo el programa
 
@@ -102,11 +102,18 @@ taus = taus / Fs % Paso de muestras a tiempo
 
 % Ejercicio 4
 
-function slope = calculate_lines (N, delta_n)
+function slope = calculate_lines (N, delta_n, upsample_gph)
     global audios Fs
 
     c = 340; % Velocidad del sonido en el aire en m/s
     d = 0.05; % Distancia entre los microfonos en m
+    L = 1;
+    if (upsample_gph)
+        L = 9; % Factor de upsampling
+        Fs = Fs * L; % Nueva frecuencia de muestreo
+        b = fir1(1000, 1/L, "low") * L; % Filtro pasabajos interpolador para el upsampling
+        delay = mean(round(grpdelay(b))); % Retardo del filtro, como es lineal el filtro entonces el valor medio es el valor de cada elemento realmente y ademas es la mitad del orden del filtro
+    endif
 
     tita = []; % Angulos
     slope = [];% Pendientes
@@ -124,11 +131,18 @@ function slope = calculate_lines (N, delta_n)
             dft_y = fft(y(w_start:w_end));
             Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
             gph = real(ifft(Gph));
-            [~, m] = max(gph);
-            if (m > N/2)
-                m = m - N;
+            if (upsample_gph) % Realizar un upsample de gph para estimar mejor los retardos
+                aux = upsample(gph, L); % Upsample de gph
+                gph = zeros(rows(aux)+10000, 1); % TODO esto es para agregar 0s de forma que no me vuele la informacion importante en el filtro al final de la senial
+                gph(1:end-10000) = aux;
+                gph = filter(b, 1 , gph); % Filtramos/Interpolamos
+                gph = gph(delay+1:end); % Anulamos el desfase introducido por el filtro
             endif
-            tau_xy(j) = m / Fs;
+            [~, m] = max(gph);
+            if (m > N*L/2) % Si el indice es mayor a la mitad del ancho de la ventana
+                m = m - N*L;
+            endif
+            tau_xy(j) = (m-1) / Fs;
             j = j + 1;
             n0 = n0 + delta_n; 
         endwhile
@@ -142,59 +156,68 @@ function slope = calculate_lines (N, delta_n)
 endfunction
 
 
-% best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
-% for N = (1000:1000:100000)
-%     for delta_n = ((N/10):(N*5/100):N)
-%         slope = calculate_lines(N, delta_n);
+best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
+for N = (1000:1000:100000)
+    for delta_n = ((N/10):(N*5/100):N)
+        slope = calculate_lines(N, delta_n, true);
 
-%         k = 1;
-%         best_x = 0;
-%         best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
-%         for i = (1:3)
-%             for j = (i:3)
-%                 if (slope(i) == slope(j+1))
-%                     continue
-%                 endif
-%                 curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
-%                 curr_y = slope(i)*curr_x - slope(i)*0.05*i;
-%                 if (curr_y > 0 && curr_y < best_y)
-%                     best_x = curr_x;
-%                     best_y = curr_y;
-%                 endif
-%                 k = k + 1;
-%             endfor
-%         endfor
+        k = 1;
+        best_x = 0;
+        best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
+        for i = (1:3)
+            for j = (i:3)
+                if (slope(i) == slope(j+1))
+                    continue
+                endif
+                curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
+                curr_y = slope(i)*curr_x - slope(i)*0.05*i;
+                if (curr_y > 0 && curr_y < best_y)
+                    best_x = curr_x;
+                    best_y = curr_y;
+                endif
+                k = k + 1;
+            endfor
+        endfor
         
-%         curr_error = 0;
-%         for i = (1:4)
-%             Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
-%             v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
-%             curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
-%         endfor
-%         if (curr_error < best_error)
-%             best_error = curr_error
-%             best_N = N
-%             best_delta_n = delta_n
-%         endif
+        curr_error = 0;
+        for i = (1:4)
+            Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
+            v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
+            curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
+        endfor
+        if (curr_error < best_error)
+            best_error = curr_error
+            best_N = N
+            best_delta_n = delta_n
+        endif
 
-%     endfor
+    endfor
+endfor
+
+
+%best_N = 82000; % Calculados ejecutando el algoritmo de arriba
+%best_delta_n = 24600;
+% slope = calculate_lines(best_N, best_delta_n, false);
+
+% figure(5)
+% hold
+% grid on
+
+% for i = (1:4)
+%     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
 % endfor
 
+% Ejercicio 6
 
-best_N = 45000; % Calculados ejecutando el algoritmo de arriba
-best_delta_n = 33750;
-slope = calculate_lines(best_N, best_delta_n);
+slope = calculate_lines(best_N, best_delta_n, true);
 
-figure(5)
+figure(6)
 hold
 grid on
 
 for i = (1:4)
     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
 endfor
-
-% Ejercicio 6
-
 
 
 clear all % Clear all variables
