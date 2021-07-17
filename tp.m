@@ -6,6 +6,10 @@ global audios Fs
 %load audios1.mat % Cargo las seniales sin ruido
 load audiosRuido1.mat % Cargo las seniales con ruido
 
+close all % Para cerrar los graficos al correr de nuevo el programa
+
+audios(400000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde no hay senial 
+
 % Ejercicio 5
 %{
 for i = (1:5)
@@ -138,48 +142,47 @@ function slope = calculate_lines (N, delta_n)
 endfunction
 
 
-%{
-best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
-for N = (1000:1000:100000)
-    for delta_n = ((N/10):(N*5/100):N)
-        slope = calculate_lines(N, delta_n);
+% best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
+% for N = (1000:1000:100000)
+%     for delta_n = ((N/10):(N*5/100):N)
+%         slope = calculate_lines(N, delta_n);
 
-        k = 1;
-        best_x = 0;
-        best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
-        for i = (1:3)
-            for j = (i:3)
-                if (slope(i) == slope(j+1))
-                    continue
-                endif
-                curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
-                curr_y = slope(i)*curr_x - slope(i)*0.05*i;
-                if (curr_y > 0 && curr_y < best_y)
-                    best_x = curr_x;
-                    best_y = curr_y;
-                endif
-                k = k + 1;
-            endfor
-        endfor
+%         k = 1;
+%         best_x = 0;
+%         best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
+%         for i = (1:3)
+%             for j = (i:3)
+%                 if (slope(i) == slope(j+1))
+%                     continue
+%                 endif
+%                 curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
+%                 curr_y = slope(i)*curr_x - slope(i)*0.05*i;
+%                 if (curr_y > 0 && curr_y < best_y)
+%                     best_x = curr_x;
+%                     best_y = curr_y;
+%                 endif
+%                 k = k + 1;
+%             endfor
+%         endfor
         
-        curr_error = 0;
-        for i = (1:4)
-            Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
-            v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
-            curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
-        endfor
-        if (curr_error < best_error)
-            best_error = curr_error
-            best_N = N
-            best_delta_n = delta_n
-        endif
+%         curr_error = 0;
+%         for i = (1:4)
+%             Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
+%             v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
+%             curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
+%         endfor
+%         if (curr_error < best_error)
+%             best_error = curr_error
+%             best_N = N
+%             best_delta_n = delta_n
+%         endif
 
-    endfor
-endfor
-%}
+%     endfor
+% endfor
 
-best_N = 82000; % Calculados ejecutando el algoritmo de arriba
-best_delta_n = 24600;
+
+best_N = 45000; % Calculados ejecutando el algoritmo de arriba
+best_delta_n = 33750;
 slope = calculate_lines(best_N, best_delta_n);
 
 figure(5)
@@ -189,5 +192,9 @@ grid on
 for i = (1:4)
     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
 endfor
+
+% Ejercicio 6
+
+
 
 clear all % Clear all variables
