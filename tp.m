@@ -3,12 +3,12 @@ pkg load matgeom % Para usar la funcion projPointOnLine() y createLine()
 pkg load communications % 
 global audios Fs
 
-load audios1.mat % Cargo las seniales sin ruido
-%load audiosRuido1.mat % Cargo las seniales con ruido
+%load audios1.mat % Cargo las seniales sin ruido
+load audiosRuido1.mat % Cargo las seniales con ruido
 
 close all % Para cerrar los graficos al correr de nuevo el programa
 
-audios(400000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde no hay senial 
+audios(400000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
 
 % Ejercicio 5
 %{
@@ -133,18 +133,21 @@ function slope = calculate_lines (N, delta_n, upsample_gph)
             gph = real(ifft(Gph));
             if (upsample_gph) % Realizar un upsample de gph para estimar mejor los retardos
                 aux = upsample(gph, L); % Upsample de gph
-                gph = zeros(rows(aux)+10000, 1); % TODO esto es para agregar 0s de forma que no me vuele la informacion importante en el filtro al final de la senial
-                gph(1:end-10000) = aux;
+                gph = zeros(rows(aux)+delay, 1); % Agrego delay cantidad de 0s de forma que no pierda la informacion original en el filtro al final de la senial
+                gph(1:end-delay) = aux;
                 gph = filter(b, 1 , gph); % Filtramos/Interpolamos
                 gph = gph(delay+1:end); % Anulamos el desfase introducido por el filtro
             endif
             [~, m] = max(gph);
+            n0 = n0 + delta_n; % Actualizo la ventana
+            if (m == 1) % No tiene sentido que me de retardo 0 segundos asi que no considero esta medicion
+                continue
+            endif
             if (m > N*L/2) % Si el indice es mayor a la mitad del ancho de la ventana
                 m = m - N*L;
             endif
             tau_xy(j) = (m-1) / Fs;
             j = j + 1;
-            n0 = n0 + delta_n; 
         endwhile
 
         mean_tau = mean(tau_xy)
@@ -156,47 +159,47 @@ function slope = calculate_lines (N, delta_n, upsample_gph)
 endfunction
 
 
-best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
-for N = (1000:1000:100000)
-    for delta_n = ((N/10):(N*5/100):N)
-        slope = calculate_lines(N, delta_n, true);
+% best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
+% for N = (1000:1000:100000)
+%     for delta_n = ((N/10):(N*5/100):N)
+%         slope = calculate_lines(N, delta_n, true);
 
-        k = 1;
-        best_x = 0;
-        best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
-        for i = (1:3)
-            for j = (i:3)
-                if (slope(i) == slope(j+1))
-                    continue
-                endif
-                curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
-                curr_y = slope(i)*curr_x - slope(i)*0.05*i;
-                if (curr_y > 0 && curr_y < best_y)
-                    best_x = curr_x;
-                    best_y = curr_y;
-                endif
-                k = k + 1;
-            endfor
-        endfor
+%         k = 1;
+%         best_x = 0;
+%         best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
+%         for i = (1:3)
+%             for j = (i:3)
+%                 if (slope(i) == slope(j+1))
+%                     continue
+%                 endif
+%                 curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
+%                 curr_y = slope(i)*curr_x - slope(i)*0.05*i;
+%                 if (curr_y > 0 && curr_y < best_y)
+%                     best_x = curr_x;
+%                     best_y = curr_y;
+%                 endif
+%                 k = k + 1;
+%             endfor
+%         endfor
         
-        curr_error = 0;
-        for i = (1:4)
-            Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
-            v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
-            curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
-        endfor
-        if (curr_error < best_error)
-            best_error = curr_error
-            best_N = N
-            best_delta_n = delta_n
-        endif
+%         curr_error = 0;
+%         for i = (1:4)
+%             Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
+%             v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
+%             curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
+%         endfor
+%         if (curr_error < best_error)
+%             best_error = curr_error
+%             best_N = N
+%             best_delta_n = delta_n
+%         endif
 
-    endfor
-endfor
+%     endfor
+% endfor
 
 
-%best_N = 82000; % Calculados ejecutando el algoritmo de arriba
-%best_delta_n = 24600;
+best_N = 50000; % Calculados ejecutando el algoritmo de arriba
+best_delta_n = 40000;
 % slope = calculate_lines(best_N, best_delta_n, false);
 
 % figure(5)
@@ -209,6 +212,7 @@ endfor
 
 % Ejercicio 6
 
+disp("\nRetardos")
 slope = calculate_lines(best_N, best_delta_n, true);
 
 figure(6)
