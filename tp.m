@@ -8,7 +8,7 @@ load audiosRuido1.mat % Cargo las seniales con ruido
 
 close all % Para cerrar los graficos al correr de nuevo el programa
 
-audios(400000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
+audios(384000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
 
 % Ejercicio 5
 %{
@@ -65,7 +65,7 @@ legend("Fourier Transform")
 figure(4)
 specgram(audios(:,1), 2500, Fs, hanning(2500))
 xlim([0.4, 8])
-ylim([0, 1500])
+ylim([0, 3000])
 
 % Ejercicio 2
 
@@ -102,16 +102,15 @@ taus = taus / Fs % Paso de muestras a tiempo
 
 % Ejercicio 4
 
-function slope = calculate_lines (N, delta_n, upsample_gph)
-    global audios Fs
-
+function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
     c = 340; % Velocidad del sonido en el aire en m/s
     d = 0.05; % Distancia entre los microfonos en m
     L = 1;
+
     if (upsample_gph)
         L = 9; % Factor de upsampling
         Fs = Fs * L; % Nueva frecuencia de muestreo
-        b = fir1(1000, 1/L, "low") * L; % Filtro pasabajos interpolador para el upsampling
+        b = fir1(150, 1/L, "low") * L; % Filtro pasabajos interpolador para el upsampling
         delay = mean(round(grpdelay(b))); % Retardo del filtro, como es lineal el filtro entonces el valor medio es el valor de cada elemento realmente y ademas es la mitad del orden del filtro
     endif
 
@@ -199,21 +198,21 @@ endfunction
 
 
 best_N = 50000; % Calculados ejecutando el algoritmo de arriba
-best_delta_n = 40000;
-% slope = calculate_lines(best_N, best_delta_n, false);
+best_delta_n = 25000;
+slope = calculate_lines(audios, Fs, best_N, best_delta_n, false);
 
-% figure(5)
-% hold
-% grid on
+figure(5)
+hold
+grid on
 
-% for i = (1:4)
-%     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
-% endfor
+for i = (1:4)
+    line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
+endfor
 
 % Ejercicio 6
 
 disp("\nRetardos")
-slope = calculate_lines(best_N, best_delta_n, true);
+slope = calculate_lines(audios, Fs, best_N, best_delta_n, true);
 
 figure(6)
 hold
@@ -222,6 +221,20 @@ grid on
 for i = (1:4)
     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
 endfor
+
+% Ejercicio 7
+
+b = fir1(150, [60/Fs, 2500/Fs]); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
+delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
+audios_noise_filtered = [];
+for i = (1:5)
+    aux = audios(:,i);
+    aux(end+1:delay) = 0; 
+    audios_noise_filtered(:,i) = filter(b, 1, aux);
+endfor
+audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
+audiowrite("signal_filtered.wav", audios_noise_filtered, Fs);
+audiowrite("signal_not_filtered.wav", audios(:,1), Fs);
 
 
 clear all % Clear all variables
