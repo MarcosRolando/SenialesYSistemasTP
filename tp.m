@@ -1,14 +1,18 @@
 pkg load signal
 pkg load matgeom % Para usar la funcion projPointOnLine() y createLine()
 pkg load communications % 
-global audios Fs
+global audios Fs c d
 
-%load audios1.mat % Cargo las seniales sin ruido
-load audiosRuido1.mat % Cargo las seniales con ruido
+c = 340; % Velocidad del sonido en el aire en m/s
+d = 0.05; % Distancia entre los microfonos en m
+
+load audios1.mat % Cargo las seniales sin ruido
+%load audiosRuido1.mat % Cargo las seniales con ruido
 
 close all % Para cerrar los graficos al correr de nuevo el programa
 
 audios(384000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
+audios(1:25000,:) = [];
 
 % Ejercicio 5
 %{
@@ -28,48 +32,70 @@ hold
 grid on
 
 for i = (1:5)
-    plot(t, audios(:,i) + (i - 1)*0.1)
+    plot(t, audios(:,i) + (i - 1)*0.12)
 endfor
 
-xlim([0, 8])
+xlim([0, 7.45])
+ylim([-0.1, 0.75])
 
 legend("Micrófono 1", "Micrófono 2",
         "Micrófono 3", "Micrófono 4"
         , "Micrófono 5")
+xlabel("Tiempo (s)")
+ylabel("Amplitud")
 
-% Zoom in to appreciate the offset
+% Hacemos Zoom para apreciar el retardo
 
 figure(2)
 hold
 grid on
 
 for i = (1:5)
-    plot(t, audios(:,i))
+    %stem(t, audios(:,i))
+    plot(t, audios(:, i))
 endfor
 
-xlim([29430/Fs, 29451/Fs])
+xlim([4430/Fs, 4451/Fs])
 ylim([-0.0024, 0])
 
 legend("Micrófono 1", "Micrófono 2",
         "Micrófono 3", "Micrófono 4"
         , "Micrófono 5")
+xlabel("Tiempo (s)")
+ylabel("Amplitud")
 
-
+% Amplitud
 figure(3)
+hold
 grid on
-fourier_audio = abs(fftshift(fft(audios(:,1))));
-plot((0:1:rows(fourier_audio)-1)*2*pi/rows(fourier_audio) - pi, fourier_audio)
-xlim([-pi/5, pi/5])
-legend("Fourier Transform")
+for i = (1:5)
+    fourier_audio = abs(fftshift(fft(audios(:,i))));
+    plot((0:1:rows(fourier_audio)-1)*2*pi/rows(fourier_audio) - pi, fourier_audio + (i-1)*200)
+endfor
+xlim([-pi/8, pi/8])
+legend("Micrófono 1", "Micrófono 2",
+        "Micrófono 3", "Micrófono 4"
+        , "Micrófono 5")
+xlabel("Frecuencia (rad)")
+ylabel("Amplitud")
 
 figure(4)
 specgram(audios(:,1), 2500, Fs, hanning(2500))
-xlim([0.4, 8])
 ylim([0, 3000])
 
 % Ejercicio 2
 
-% Estimar los retardos viendo el grafico del segmento ese del ejercicio 1
+tau = [-60*10^(-6), -60*10^(-6), -60*10^(-6), -60*10^(-6)]; % Taus medidos visualmente con el grafico del Ejercicio 1
+tita = acos(tau * c / d);
+slope = tan(tita);
+
+figure(15)
+hold
+grid on
+
+for i = (1:4)
+    line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
+endfor
 
 % Ejercicio 3
 
@@ -103,8 +129,7 @@ taus = taus / Fs % Paso de muestras a tiempo
 % Ejercicio 4
 
 function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
-    c = 340; % Velocidad del sonido en el aire en m/s
-    d = 0.05; % Distancia entre los microfonos en m
+    global c d
     L = 1;
 
     if (upsample_gph)
@@ -159,9 +184,10 @@ endfunction
 
 
 % best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
-% for N = (1000:1000:100000)
-%     for delta_n = ((N/10):(N*5/100):N)
-%         slope = calculate_lines(N, delta_n, true);
+% for N = (5000:1000:50000)
+%     for delta_n = ((N/10):(N*25/100):N)
+%         delta_n = N / 2;
+%         slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
 
 %         k = 1;
 %         best_x = 0;
@@ -197,8 +223,8 @@ endfunction
 % endfor
 
 
-best_N = 50000; % Calculados ejecutando el algoritmo de arriba
-best_delta_n = 25000;
+best_N = 19000; % Calculados ejecutando el algoritmo de arriba
+best_delta_n = 15200;
 slope = calculate_lines(audios, Fs, best_N, best_delta_n, false);
 
 figure(5)
@@ -209,32 +235,47 @@ for i = (1:4)
     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
 endfor
 
-% Ejercicio 6
+% % Ejercicio 6
 
-disp("\nRetardos")
-slope = calculate_lines(audios, Fs, best_N, best_delta_n, true);
+% disp("\nRetardos")
+% slope = calculate_lines(audios, Fs, best_N, best_delta_n, true);
 
-figure(6)
-hold
-grid on
+% figure(6)
+% hold
+% grid on
 
-for i = (1:4)
-    line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
-endfor
+% for i = (1:4)
+%     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
+% endfor
 
-% Ejercicio 7
+% % Ejercicio 7
 
-b = fir1(150, [60/Fs, 2500/Fs]); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
-delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
-audios_noise_filtered = [];
-for i = (1:5)
-    aux = audios(:,i);
-    aux(end+1:delay) = 0; 
-    audios_noise_filtered(:,i) = filter(b, 1, aux);
-endfor
-audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
-audiowrite("signal_filtered.wav", audios_noise_filtered, Fs);
-audiowrite("signal_not_filtered.wav", audios(:,1), Fs);
+% b = fir1(1000, 20000/(Fs / 2), "low"); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
+% delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
+% audios_noise_filtered = [];
+% for i = (1:5)
+%     aux = audios(:,i);
+%     aux(end+1:end+delay) = 0;
+%     audios_noise_filtered(:,i) = filter(b, 1, aux);
+% endfor
+% audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
 
+% figure(15)
+% hold
+% %plot(audios_noise_filtered(:,1))
+% %plot(audios_noise_filtered(:,2))
+% specgram(audios_noise_filtered(:,1), 2500, Fs, hanning(2500))
+% ylim([0, 20000])
+
+% disp("\nRetardos")
+% slope = calculate_lines(audios_noise_filtered, Fs, best_N, best_delta_n, true);
+
+% figure(7)
+% hold
+% grid on
+
+% for i = (1:4)
+%     line([0.05*i -1], [0 slope(i) * (-1 - 0.05 * i)])  
+% endfor
 
 clear all % Clear all variables
