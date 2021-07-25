@@ -8,6 +8,21 @@ d = 0.05; % Distancia entre los microfonos en m
 hist_figure_counter = 100; % Para crear distintas figuras para los histogramas
 delay_time_counter = 50; % Para crear distintas figuras para los retardos en el tiempo
 
+function plot_lines(slope)
+    hold
+    grid on
+
+    for i = (1:4)
+        line([(2 + 0.05*i) 0], [1 (1 - slope(i)*(2 + 0.05*i))])  
+    endfor
+    plot([2, 2.05, 2.1, 2.15, 2.2], [1, 1, 1, 1, 1], 'x', 'color', 'r') 
+    plot([1.56], [2.04], 'o', 'color', 'r')
+    xlim([0, 3])
+    ylim([0, 4])
+    xlabel("x [m]")
+    ylabel("y [m]")
+endfunction
+
 %load audios1.mat % Cargo las seniales sin ruido
 load audiosRuido1.mat % Cargo las seniales con ruido
 
@@ -15,6 +30,20 @@ close all % Para cerrar los graficos al correr de nuevo el programa
 
 audios(384000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
 audios(1:25000,:) = [];
+
+% L = 10;
+% b = fir1(150, 1/L, "low") * L; % Filtro pasabajos interpolador para el upsampling
+% delay = round(mean(grpdelay(b)));
+
+% for i = (1:5)
+%     aux = upsample(audios(:,i), L); % Upsample de gph
+%     gph = zeros(rows(aux)+delay, 1); % Agrego delay cantidad de 0s de forma que no pierda la informacion original en el filtro al final de la senial
+%     gph(1:end-delay) = aux;
+%     gph = filter(b, 1 , gph); % Filtramos/Interpolamos
+%     gph = gph(delay+1:end); % Anulamos el desfase introducido por el filtro
+%     audios_f(:,i) = gph;
+% endfor
+% audios = audios_f;
 
 % Ejercicio 5
 %{
@@ -25,7 +54,7 @@ endfor
 
 % Ejercicio 1
 
-Fs = 48 * 10^3; % 48 KHz
+Fs = 48000; % 48 KHz
 
 t = (0:rows(audios)-1)/Fs;
 
@@ -91,18 +120,8 @@ tau = [-60*10^(-6), -60*10^(-6), -60*10^(-6), -60*10^(-6)]; % Taus medidos visua
 tita = acos(tau * c / d);
 slope = tan(tita);
 
-figure(15)
-hold
-grid on
-
-for i = (1:4)
-    line([(2 + 0.05*i) 0], [1 (1 - slope(i)*(2 + 0.05*i))])  
-endfor
-plot([2, 2.05, 2.1, 2.15, 2.2], [1, 1, 1, 1, 1], 'x', 'color', 'r') 
-xlim([0, 3])
-ylim([0, 4])
-xlabel("x [m]")
-ylabel("y [m]")
+figure(20)
+plot_lines(slope);
 
 % Ejercicio 3
 
@@ -121,13 +140,14 @@ taus = k / Fs % Retardos entre los microfonos consecutivos
 for i = (1:4)
     dft_curr_mic = fft(audios(:,i));
     dft_next_mic = fft(audios(:,i+1));
-    Gph = dft_curr_mic .* conj(dft_next_mic) ./ (abs(dft_curr_mic).*abs(dft_next_mic));
+    R = dft_curr_mic .* conj(dft_next_mic);
+    Gph = R ./ abs(R);
     gph = real(ifft(Gph));
     [~, max_index] = max(gph);
     if (max_index > rows(audios)/2)
         max_index = max_index - rows(audios);
     endif
-    taus(i) = max_index;
+    taus(i) = max_index - 1;
 endfor
 
 disp("\nRetardos obtenidos mediante el segundo método (en segundos):\n")
@@ -168,7 +188,8 @@ function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
             w_end = n0 + N/2;
             dft_x = fft(x(w_start:w_end));
             dft_y = fft(y(w_start:w_end));
-            Gph = dft_x .* conj(dft_y) ./ (abs(dft_x) .* abs(dft_y));
+            R = dft_x .* conj(dft_y);
+            Gph = R ./ abs(R);
             gph = real(ifft(Gph));
             if (upsample_gph) % Realizar un upsample de gph para estimar mejor los retardos
                 aux = upsample(gph, L); % Upsample de gph
@@ -181,28 +202,27 @@ function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
             if (m > N*L/2) % Si el indice es mayor a la mitad del ancho de la ventana
                 m = m - N*L;
             endif
-            n0 = n0 + delta_n; % Actualizo la ventana
-            if (m >= 1) % No tiene sentido que me de retardo inverso o que no hay retardo asi que no lo considero
-                continue
+            if (m < 1) % No tiene sentido que me de retardo inverso o que no hay retardo asi que no lo considero
+                tau_xy(j) = (m-1) / Fs;
+                j = j + 1;
             endif
-            tau_xy(j) = (m-1) / Fs;
-            j = j + 1;
+            n0 = n0 + delta_n; % Actualizo la ventana
         endwhile
 
-        figure(hist_figure_counter);
-        h = gca();
-        hist(tau_xy, hist_bins) % Grafico el histograma de los retardos
-        xlabel(h, "Retardos [s]")
-        ylabel(h, "Cantidad")
-        figure(delay_time_counter)
-        hold
-        h = gca();
-        plot(tau_xy, 'o')
+        % figure(hist_figure_counter);
+        % h = gca();
+        % hist(tau_xy, hist_bins) % Grafico el histograma de los retardos
+        % xlabel(h, "Retardos [s]")
+        % ylabel(h, "Cantidad")
+        % figure(delay_time_counter)
+        % hold
+        % h = gca();
+        % plot(tau_xy, 'o')
         mean_tau = mean(tau_xy)
-        line([0 length(tau_xy)], [mean_tau mean_tau], 'color', 'r')
-        ylabel(h, "Retardo [s]")
-        delay_time_counter = delay_time_counter + 1;
-        hist_figure_counter = hist_figure_counter + 1;
+        % line([0 length(tau_xy)], [mean_tau mean_tau], 'color', 'r')
+        % ylabel(h, "Retardo [s]")
+        % delay_time_counter = delay_time_counter + 1;
+        % hist_figure_counter = hist_figure_counter + 1;
         tita(i) = acos(mean_tau * c / d);
         slope(i) = tan(tita(i));
         clear tau_xy
@@ -210,64 +230,12 @@ function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
 
 endfunction
 
-
-% best_error = 10^4; % Un error grande para que la primera iteracion siempre lo reemplace
-% for N = (5000:1000:50000)
-%     for delta_n = ((N/10):(N*25/100):N)
-%         delta_n = N / 2;
-%         slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
-
-%         k = 1;
-%         best_x = 0;
-%         best_y = 10^3; % Un valor grande para que la primera iteracion siempre lo reemplace
-%         for i = (1:3)
-%             for j = (i:3)
-%                 if (slope(i) == slope(j+1))
-%                     continue
-%                 endif
-%                 curr_x = (-slope(j+1)*0.05*(j+1) + slope(i)*0.05*i) / (slope(i) - slope(j+1)); 
-%                 curr_y = slope(i)*curr_x - slope(i)*0.05*i;
-%                 if (curr_y > 0 && curr_y < best_y)
-%                     best_x = curr_x;
-%                     best_y = curr_y;
-%                 endif
-%                 k = k + 1;
-%             endfor
-%         endfor
-        
-%         curr_error = 0;
-%         for i = (1:4)
-%             Line = createLine([0.05*i 0], [-1 (slope(i)*(-1) - slope(i)*0.05*i)]);
-%             v = [best_x best_y] - projPointOnLine([best_x best_y], Line);
-%             curr_error = curr_error + sqrt(v(1)^2 + v(2)^2);
-%         endfor
-%         if (curr_error < best_error)
-%             best_error = curr_error
-%             best_N = N
-%             best_delta_n = delta_n
-%         endif
-
-%     endfor
-% endfor
-
-
 N = 20000;
-delta_n = N / 2;
+delta_n = N/2;
 slope = calculate_lines(audios, Fs, N, delta_n, false);
 
 figure(5)
-hold
-grid on
-
-for i = (1:4)
-    line([(2 + 0.05*i) 0], [1 (1 - slope(i)*(2 + 0.05*i))])  
-endfor
-plot([2, 2.05, 2.1, 2.15, 2.2], [1, 1, 1, 1, 1], 'x', 'color', 'r') 
-plot([1.56], [2.04], 'o', 'color', 'r')
-xlim([0, 3])
-ylim([0, 4])
-xlabel("x [m]")
-ylabel("y [m]")
+plot_lines(slope);
 
 % Ejercicio 6
 
@@ -275,40 +243,29 @@ disp("\n\nRetardos ejercicio 6")
 slope = calculate_lines(audios, Fs, N, delta_n, true);
 
 figure(6)
-hold
-grid on
-
-for i = (1:4)
-    line([(2 + 0.05*i) 0], [1 (1 - slope(i)*(2 + 0.05*i))])  
-endfor
-plot([2, 2.05, 2.1, 2.15, 2.2], [1, 1, 1, 1, 1], 'x', 'color', 'r') 
-plot([1.33], [2.55], 'o', 'color', 'r')
-xlim([0, 3])
-ylim([0, 4])
-xlabel("x [m]")
-ylabel("y [m]")
+plot_lines(slope)
 
 % Ejercicio 7
 
-% b = fir1(1000, 20000/(Fs / 2), "low"); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
-% delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
-% audios_noise_filtered = [];
-% for i = (1:5)
-%     aux = audios(:,i);
-%     aux(end+1:end+delay) = 0;
-%     audios_noise_filtered(:,i) = filter(b, 1, aux);
-% endfor
-% audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
+b = fir1(150, 4000/(Fs / 2), "low"); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
+delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
+audios_noise_filtered = [];
+for i = (1:5)
+    aux = audios(:,i);
+    aux(end+1:end+delay) = 0;
+    audios_noise_filtered(:,i) = filter(b, 1, aux);
+endfor
+audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
 
-% figure(15)
-% hold
-% %plot(audios_noise_filtered(:,1))
-% %plot(audios_noise_filtered(:,2))
-% specgram(audios_noise_filtered(:,1), 2500, Fs, hanning(2500))
-% ylim([0, 20000])
+figure(15)
+hold
+%stem(audios_noise_filtered(end-40:end,1))
+%stem(audios(end-40:end,1))
+specgram(audios_noise_filtered(:,1), 2500, Fs, hanning(2500))
+ylim([0, 10000])
 
-% disp("\nRetardos")
-% slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
+disp("\nRetardos")
+slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
 
 % figure(7)
 % hold
