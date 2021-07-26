@@ -1,11 +1,13 @@
 pkg load signal
-pkg load communications % Para la funcion awgn
+pkg load communications % Para la funcion awgn()
 global audios Fs c d hist_figure_counter delay_time_counter
 
 c = 340; % Velocidad del sonido en el aire en m/s
 d = 0.05; % Distancia entre los microfonos en m
 hist_figure_counter = 100; % Para crear distintas figuras para los histogramas
 delay_time_counter = 50; % Para crear distintas figuras para los retardos en el tiempo
+
+format short e % Para mostrar los resultados en notacion cientifica
 
 function plot_lines(slope)
     hold
@@ -15,13 +17,14 @@ function plot_lines(slope)
         line([(2 + 0.05*i) 0], [1 (1 - slope(i)*(2 + 0.05*i))])  
     endfor
     plot([2, 2.05, 2.1, 2.15, 2.2], [1, 1, 1, 1, 1], 'x', 'color', 'r') 
-    plot([0.83], [3.40], 'o', 'color', 'r')
+    %plot([0.83], [3.40], 'o', 'color', 'r')
     xlim([0, 3])
     ylim([0, 4])
     xlabel("x [m]")
     ylabel("y [m]")
 endfunction
 
+% Specgram basado en la documentacion de Octave
 function plot_specgram(audio, Fs, F_range)
     step = fix(5*Fs/1000);     # one spectral slice every 5 ms
     window = fix(40*Fs/1000);  # 40 ms data window
@@ -45,20 +48,6 @@ close all % Para cerrar los graficos al correr de nuevo el programa
 
 audios(384000:end,:) = []; % Elimino los ultimos 2 segundos aprox (del 8 al 10 en segundos) donde la senial es 0
 audios(1:25000,:) = [];
-
-% L = 10;
-% b = fir1(150, 1/L, "low") * L; % Filtro pasabajos interpolador para el upsampling
-% delay = round(mean(grpdelay(b)));
-
-% for i = (1:5)
-%     aux = upsample(audios(:,i), L); % Upsample de gph
-%     gph = zeros(rows(aux)+delay, 1); % Agrego delay cantidad de 0s de forma que no pierda la informacion original en el filtro al final de la senial
-%     gph(1:end-delay) = aux;
-%     gph = filter(b, 1 , gph); % Filtramos/Interpolamos
-%     gph = gph(delay+1:end); % Anulamos el desfase introducido por el filtro
-%     audios_f(:,i) = gph;
-% endfor
-% audios = audios_f;
 
 % Ejercicio 5
 %{
@@ -99,7 +88,6 @@ hold
 grid on
 
 for i = (1:5)
-    %stem(t, audios(:,i))
     plot(t, audios(:, i))
 endfor
 
@@ -114,7 +102,6 @@ ylabel("Amplitud")
 
 print(hf, "audios_con_ruido_zoom.png")
 
-% Amplitud
 hf = figure(3);
 hold
 grid on
@@ -147,17 +134,16 @@ plot_lines(slope);
 print(hf, "ejercicio2_sin_ruido.png")
 
 % Ejercicio 3
+disp("Ejercicio 3")
 
 for i = (1:4)
-    [coeffs, lags] = xcorr(audios(:,i+1), audios(:,i), 20); % Paso 
+    [coeffs, lags] = xcorr(audios(:,i+1), audios(:,i), 20); % Hasta 20 de max_lag
     [~, max_index] = max(coeffs);
     k(i) = -lags(max_index); % Dado que xcorr usa en la definicion x[i + k] pero el enunciado usa x[i - k],
                               % debemos hacer un negado del indice para que sea equivalente a la del enunciado
 endfor
 
-format short e
-
-disp("\nRetardos obtenidos mediante el primer método (en segundos):\n")
+disp("\nRetardos obtenidos mediante el método de correlación cruzada (en segundos):\n")
 taus = k / Fs % Retardos entre los microfonos consecutivos
 
 for i = (1:4)
@@ -173,10 +159,11 @@ for i = (1:4)
     taus(i) = max_index - 1;
 endfor
 
-disp("\nRetardos obtenidos mediante el segundo método (en segundos):\n")
+disp("\nRetardos obtenidos mediante el método de GCC-PHAT (en segundos):\n")
 taus = taus / Fs % Paso de muestras a tiempo
 
 % Ejercicio 4
+disp("Ejercicio 4")
 
 function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
     global c d hist_figure_counter delay_time_counter
@@ -257,6 +244,7 @@ endfunction
 
 N = 20000;
 delta_n = N/2;
+disp("\nRetardos medios mediante GCC-PHAT (en segundos)\n")
 slope = calculate_lines(audios, Fs, N, delta_n, false);
 
 hf = figure(5);
@@ -265,14 +253,16 @@ print(hf, "rectas_ejercicio4_con_ruido_con_fuente.png")
 
 %Ejercicio 6
 
-% disp("\n\nRetardos ejercicio 6")
-% slope = calculate_lines(audios, Fs, N, delta_n, true);
+disp("\nEjercicio 6")
+disp("\nRetardos medios mediante GCC-PHAT (en segundos)\n")
+slope = calculate_lines(audios, Fs, N, delta_n, true);
 
-% hf = figure(6);
-% plot_lines(slope)
-% print(hf, "rectas_ejercicio4_con_ruido_con_fuente_con_sobremuestreo.png")
+hf = figure(6);
+plot_lines(slope)
+print(hf, "rectas_ejercicio4_con_ruido_con_fuente_con_sobremuestreo.png")
 
 % Ejercicio 7
+disp("\nEjercicio 7")
 
 b = fir1(150, 5000/(Fs / 2), "low"); % Disenio el filtro pasabanda que filtre desde los 80Hz hasta los 800Hz
 delay = round(mean(grpdelay(b))); % Es la mitad del orden del filtro
@@ -297,7 +287,7 @@ hf = figure(9);
 zplane(b, 1);
 print(hf, "ejercicio7_polos_y_ceros.png")
 
-disp("\nRetardos ejercicio 7")
+disp("\nRetardos medios mediante GCC-PHAT (en segundos)\n")
 slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
 hf = figure(10);
 plot_lines(slope)
@@ -325,11 +315,9 @@ for i = (1:4)
                               % debemos hacer un negado del indice para que sea equivalente a la del enunciado
 endfor
 
-format short e
-
 Fs = Fs * L;
 
-disp("\nRetardos obtenidos mediante el primer método (en segundos):\n")
+disp("\nRetardos obtenidos mediante el método de correlación cruzada (en segundos):\n")
 taus = k / Fs % Retardos entre los microfonos consecutivos
 
 hf = figure(11);
