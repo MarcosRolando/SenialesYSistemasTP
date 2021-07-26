@@ -23,6 +23,22 @@ function plot_lines(slope)
     ylabel("y [m]")
 endfunction
 
+function plot_specgram(audio, Fs, F_range)
+    step = fix(5*Fs/1000);     # one spectral slice every 5 ms
+    window = fix(40*Fs/1000);  # 40 ms data window
+    fftn = 2^nextpow2(window); # next highest power of 2
+    [S, f, t] = specgram(audio, fftn, Fs, window, window-step);
+    S = abs(S); # magnitude
+    S = S/max(S(:));           # normalize magnitude so that max is 0 dB.
+    S = max(S, 10^(-40/10));   # clip below -40 dB.
+    S = min(S, 10^(-3/10));    # clip above -3 dB.
+    imagesc(t, f, log(S));    # display in log scale
+    set(gca, "ydir", "normal"); # put the 'y' direction in the correct direction
+    xlabel("Tiempo [s]")
+    ylabel("Frecuencia [Hz]")
+    ylim([0 F_range])
+endfunction
+
 %load audios1.mat % Cargo las seniales sin ruido
 load audiosRuido1.mat % Cargo las seniales con ruido
 
@@ -117,10 +133,7 @@ ylabel("Amplitud")
 print(hf, "transf_fourier_con_ruido.png")
 
 hf = figure(4);
-specgram(audios(:,1), 2500, Fs, hanning(2500))
-xlabel("Tiempo [s]")
-ylabel("Frecuencia [Hz]")
-ylim([0, 6500])
+plot_specgram(audios(:,1), Fs, 8000)
 
 print(hf, "specgram_con_ruido.png")
 
@@ -272,25 +285,24 @@ for i = (1:5)
 endfor
 audios_noise_filtered = audios_noise_filtered(delay+1:end, :);
 
-% hf = figure(7);
-% specgram(audios_noise_filtered(:,1), 2500, Fs, hanning(2500))
-% ylim([0, 6500])
-% print(hf, "ejercicio7_specgram.png")
+hf = figure(7);
+plot_specgram(audios_noise_filtered(:,1), Fs, 6500)
+print(hf, "ejercicio7_specgram.png")
 
-% hf = figure(8);
-% hold
-% freqz(b, 1, length(b), Fs);
-% print(hf, "ejercicio7_respuesta_filtro.png")
+hf = figure(8);
+hold
+freqz(b, 1, length(b), Fs);
+print(hf, "ejercicio7_respuesta_filtro.png")
 
-% hf = figure(9);
-% zplane(roots(b));
-% print(hf, "ejercicio7_polos_y_ceros.png")
+hf = figure(9);
+zplane(b, 1);
+print(hf, "ejercicio7_polos_y_ceros.png")
 
-% disp("\nRetardos ejercicio 7")
-% slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
-% hf = figure(10);
-% plot_lines(slope)
-% print(hf, "ejercicio7_posicion_fuente.png")
+disp("\nRetardos ejercicio 7")
+slope = calculate_lines(audios_noise_filtered, Fs, N, delta_n, true);
+hf = figure(10);
+plot_lines(slope)
+print(hf, "ejercicio7_posicion_fuente.png")
 
 % Upsampling de las seniales originales
 
@@ -342,6 +354,13 @@ for i = (2:5)
     audio_prom = audio_prom + audios_f(:,i); 
 endfor
 audio_prom = audio_prom / 5;
+audio_prom = audio_prom(1:L:end); % Decimacion
+
+% Ejercicio 9
+
+hf = figure(12);
+plot_specgram(audio_prom, 48000, 6500)
+print(hf, "ejercicio9.png")
 
 
 clear all % Clear all variables
