@@ -1,6 +1,5 @@
 pkg load signal
-pkg load matgeom % Para usar la funcion projPointOnLine() y createLine()
-pkg load communications % 
+pkg load communications % Para la funcion awgn
 global audios Fs c d hist_figure_counter delay_time_counter
 
 c = 340; % Velocidad del sonido en el aire en m/s
@@ -227,7 +226,7 @@ function slope = calculate_lines (audios, Fs, N, delta_n, upsample_gph)
             endif
             curr_tau = (m-1) / Fs;
             if (m < 1) % No tiene sentido que me de retardo inverso o que no hay retardo asi que no lo considero
-                tau_xy(j) = (m-1) / Fs;
+                tau_xy(j) = curr_tau;
                 j = j + 1;
             endif
             n0 = n0 + delta_n; % Actualizo la ventana
