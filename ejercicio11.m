@@ -82,6 +82,7 @@ endfunction
 cut_n = rows(audios) / 5;
 N = 20000;
 delta_n = N / 2;
+disp("\nRetardos medios obtenidos mediante GCC-PHAT (en segundos)\n")
 for i = (1:5)
     hf = figure(i);
     slope = calculate_lines(audios(1+cut_n*(i-1):cut_n*i, :), Fs, N, delta_n, true);
